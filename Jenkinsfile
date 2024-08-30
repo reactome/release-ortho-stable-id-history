@@ -22,11 +22,9 @@ pipeline {
 		stage('Setup: Back up DBs'){
 			steps{
 				script{
-					dir('ortho-stable-id-history'){
-						withCredentials([usernamePassword(credentialsId: 'mySQLUsernamePassword', passwordVariable: 'pass', usernameVariable: 'user')]){
-							utils.takeDatabaseDumpAndGzip("${env.RELEASE_CURRENT_DB}", "ortho_stable_id_history", "before", "${env.RELEASE_SERVER}")
-							utils.takeDatabaseDumpAndGzip("${env.STABLE_IDENTIFIERS_DB}", "ortho_stable_id_history", "before", "${env.RELEASE_SERVER}")
-						}
+					withCredentials([usernamePassword(credentialsId: 'mySQLUsernamePassword', passwordVariable: 'pass', usernameVariable: 'user')]){
+						utils.takeDatabaseDumpAndGzip("${env.RELEASE_CURRENT_DB}", "ortho_stable_id_history", "before", "${env.RELEASE_SERVER}")
+						utils.takeDatabaseDumpAndGzip("${env.STABLE_IDENTIFIERS_DB}", "ortho_stable_id_history", "before", "${env.RELEASE_SERVER}")
 					}
 				}
 			}
@@ -35,9 +33,7 @@ pipeline {
 		stage('Setup: Build jar file'){
 			steps{
 				script{
-					dir('ortho-stable-id-history'){
-						utils.buildJarFile()
-					}
+					utils.buildJarFile()
 				}
 			}
 		}
@@ -45,11 +41,9 @@ pipeline {
 		stage('Main: Save StableIdentifier History'){
 			steps{
 				script{
-					dir('ortho-stable-id-history'){
-						withCredentials([usernamePassword(credentialsId: 'mySQLUsernamePassword', passwordVariable: 'pass', usernameVariable: 'user')]){
-							def releaseVersion = utils.getReleaseVersion()
-							sh  "perl ${env.ABS_RELEASE_PATH}/generate_stable_ids_orthoinference/save_stable_id_history.pl -db ${env.RELEASE_CURRENT_DB} -sdb ${env.STABLE_IDENTIFIERS_DB} -host localhost -user $user -pass $pass -release ${releaseVersion}"
-						}
+					withCredentials([usernamePassword(credentialsId: 'mySQLUsernamePassword', passwordVariable: 'pass', usernameVariable: 'user')]){
+						def releaseVersion = utils.getReleaseVersion()
+						sh  "perl ${env.ABS_RELEASE_PATH}/generate_stable_ids_orthoinference/save_stable_id_history.pl -db ${env.RELEASE_CURRENT_DB} -sdb ${env.STABLE_IDENTIFIERS_DB} -host localhost -user $user -pass $pass -release ${releaseVersion}"
 					}
 				}
 			}
@@ -58,17 +52,15 @@ pipeline {
 		stage('Main: Old StableIdentifier Mapping'){
 			steps{
 				script{
-					dir('ortho-stable-id-history'){
-						// Download 'stable_id_mapping.stored_data' from S3
-						sh "aws s3 cp ${env.S3_RELEASE_DIRECTORY_URL}/supplementary_files/stable_id_mapping.stored_data.zip ."
-						sh "unzip stable_id_mapping.stored_data.zip"
-						// Ensure that the file is in the same location as the Perl script
-						sh "cp ./stable_id_mapping.stored_data ${env.ABS_RELEASE_PATH}/generate_stable_ids_orthoinference/stable_id_mapping.stored_data"
-						withCredentials([usernamePassword(credentialsId: 'mySQLUsernamePassword', passwordVariable: 'pass', usernameVariable: 'user')]){
-							sh "perl ${env.ABS_RELEASE_PATH}/generate_stable_ids_orthoinference/old_stable_id_mapping.pl -db ${env.RELEASE_CURRENT_DB} -host localhost"
-						}
-						sh "rm stable_id_mapping.stored_data*"
+					// Download 'stable_id_mapping.stored_data' from S3
+					sh "aws s3 cp ${env.S3_RELEASE_DIRECTORY_URL}/supplementary_files/stable_id_mapping.stored_data.zip ."
+					sh "unzip stable_id_mapping.stored_data.zip"
+					// Ensure that the file is in the same location as the Perl script
+					sh "cp ./stable_id_mapping.stored_data ${env.ABS_RELEASE_PATH}/generate_stable_ids_orthoinference/stable_id_mapping.stored_data"
+					withCredentials([usernamePassword(credentialsId: 'mySQLUsernamePassword', passwordVariable: 'pass', usernameVariable: 'user')]){
+						sh "perl ${env.ABS_RELEASE_PATH}/generate_stable_ids_orthoinference/old_stable_id_mapping.pl -db ${env.RELEASE_CURRENT_DB} -host localhost"
 					}
+					sh "rm stable_id_mapping.stored_data*"
 				}
 			}
 		}
@@ -76,10 +68,8 @@ pipeline {
 		stage('Post: Run StableIdentifier QA'){
 			steps{
 				script{
-					dir('ortho-stable-id-history') {
-						withCredentials([file(credentialsId: 'Config', variable: 'ConfigFile')]) {
-							sh "java -jar target/OrthoStableIdHistory-*-jar-with-dependencies.jar $ConfigFile"
-						}
+					withCredentials([file(credentialsId: 'Config', variable: 'ConfigFile')]) {
+						sh "java -jar target/OrthoStableIdHistory-*-jar-with-dependencies.jar $ConfigFile"
 					}
 				}
 			}
@@ -88,18 +78,16 @@ pipeline {
 		stage('Post: Backup DBs'){
 			steps{
 				script{
-					dir('ortho-stable-id-history'){
-						// Download 'stable_id_mapping.stored_data' from S3
-						def stableIdMappingStorFile = "stable_id_mapping.stored_data"
-						sh "aws s3 --no-progress cp ${env.S3_RELEASE_DIRECTORY_URL}/supplementary_files/${stableIdMappingStorFile}.zip ."
-						sh "unzip ${stableIdMappingStorFile}.zip"
-						sh "mv ${stableIdMappingStorFile} ${env.ABS_RELEASE_PATH}/generate_stable_ids_orthoinference/"
-						withCredentials([usernamePassword(credentialsId: 'mySQLUsernamePassword', passwordVariable: 'pass', usernameVariable: 'user')]){
-							sh "perl ${env.ABS_RELEASE_PATH}/generate_stable_ids_orthoinference/old_stable_id_mapping.pl -db ${env.RELEASE_CURRENT_DB} -host localhost"
-						}
-						sh "rm ${stableIdMappingStorFile}.zip"
-						sh "rm ${env.ABS_RELEASE_PATH}/generate_stable_ids_orthoinference/${stableIdMappingStorFile}"
+					// Download 'stable_id_mapping.stored_data' from S3
+					def stableIdMappingStorFile = "stable_id_mapping.stored_data"
+					sh "aws s3 --no-progress cp ${env.S3_RELEASE_DIRECTORY_URL}/supplementary_files/${stableIdMappingStorFile}.zip ."
+					sh "unzip ${stableIdMappingStorFile}.zip"
+					sh "mv ${stableIdMappingStorFile} ${env.ABS_RELEASE_PATH}/generate_stable_ids_orthoinference/"
+					withCredentials([usernamePassword(credentialsId: 'mySQLUsernamePassword', passwordVariable: 'pass', usernameVariable: 'user')]){
+						sh "perl ${env.ABS_RELEASE_PATH}/generate_stable_ids_orthoinference/old_stable_id_mapping.pl -db ${env.RELEASE_CURRENT_DB} -host localhost"
 					}
+					sh "rm ${stableIdMappingStorFile}.zip"
+					sh "rm ${env.ABS_RELEASE_PATH}/generate_stable_ids_orthoinference/${stableIdMappingStorFile}"
 				}
 			}
 		}
@@ -107,12 +95,10 @@ pipeline {
 		stage('Post: Archive Outputs'){
 			steps{
 				script{
-					dir('ortho-stable-id-history'){
-						def dataFiles = []
-						def logFiles = ["${env.ABS_RELEASE_PATH}/generate_stable_ids_orthoinference/*log", "${env.ABS_RELEASE_PATH}/generate_stable_ids_orthoinference/*err"]
-						def foldersToDelete = []
-						utils.cleanUpAndArchiveBuildFiles("ortho_stable_id_history", dataFiles, logFiles, foldersToDelete)
-					}
+					def dataFiles = []
+					def logFiles = ["${env.ABS_RELEASE_PATH}/generate_stable_ids_orthoinference/*log", "${env.ABS_RELEASE_PATH}/generate_stable_ids_orthoinference/*err"]
+					def foldersToDelete = []
+					utils.cleanUpAndArchiveBuildFiles("ortho_stable_id_history", dataFiles, logFiles, foldersToDelete)
 				}
 			}
 		}
