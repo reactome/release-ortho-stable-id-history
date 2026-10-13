@@ -27,17 +27,10 @@ public class Main {
         int releasePort = Integer.valueOf(props.getProperty("release.database.port"));
         String releaseCurrent = props.getProperty("release_current.name");
 
-        String curatorUsername = props.getProperty("curator.database.user");
-        String curatorPassword = props.getProperty("curator.database.password");
-        String curatorHost = props.getProperty("curator.database.host");
-        int curatorPort = Integer.valueOf(props.getProperty("curator.database.port"));
-        String curatorDatabase = props.getProperty("curator.database.name");
-
         MySQLAdaptor dbAdaptor = new MySQLAdaptor(releaseHost, releaseCurrent, releaseUsername, releasePassword, releasePort);
-        MySQLAdaptor dbAdaptorCurator = new MySQLAdaptor(curatorHost, curatorDatabase, curatorUsername, curatorPassword, curatorPort);
 
         logger.info("Executing post-step checks");
-        PostStepChecks.performStableIdentifierHistoryQA(dbAdaptor, dbAdaptorCurator);
+        PostStepChecks.performStableIdentifierHistoryQA(dbAdaptor);
         logger.info("Finished post-step checks");
     }
 }

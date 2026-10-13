@@ -13,15 +13,11 @@ public class PostStepChecks {
     private static Collection<GKInstance> stableIdentifierInstances = new ArrayList<>();
     private static Map<String, List<GKInstance>> identifierToStableIdentifierMap = new HashMap<>();
     private static Map<String, List<GKInstance>> oldIdentifierToStableIdentifierMap = new HashMap<>();
-    private static MySQLAdaptor dbaCurator;
     private static final long HUMAN_INSTANCE_DBID = 48887L;
     private static final String NULL_SPECIES_PREFIX = "NUL";
     private static final String ALL_SPECIES_PREFIX = "ALL";
 
-    public static void performStableIdentifierHistoryQA(MySQLAdaptor dba, MySQLAdaptor dbaC) throws Exception {
-
-        dbaCurator = dbaC;
-
+    public static void performStableIdentifierHistoryQA(MySQLAdaptor dba) throws Exception {
         Map<String, List<GKInstance>> identifiersAssociatedWithMultipleStableIdentifiersMap = findIdentifiersAssociatedWithMultipleStableIdentifierInstances(dba);
         Map<String, List<GKInstance>> oldIdentifiersAssociatedWithMultipleStableIdentifiersMap = findOldIdentifiersAssociatedWithMultipleStableIdentifierInstances(dba);
 
@@ -191,17 +187,8 @@ public class PostStepChecks {
             return referralInst.getAttributeValue(ReactomeJavaConstants.evidenceType) != null;
         } else {
             // Find out if PhysicalEntity is electronically inferred
-            GKInstance curatorInst = dbaCurator.fetchInstance(referralInst.getDBID());
-
-            return !inCuratorDatabase(referralInst, curatorInst) && hasHumanSourceInstance(referralInst);
+            return hasHumanSourceInstance(referralInst) && !isRiceInstance(referralInst);
         }
-    }
-
-    private static boolean inCuratorDatabase(GKInstance referralInst, GKInstance curatorInst) throws Exception {
-        return curatorInst != null &&
-                referralInst.getSchemClass().getName().equals(curatorInst.getSchemClass().getName()) &&
-                referralInst.getDisplayName().equals(curatorInst.getDisplayName()) &&
-                haveSameSpeciesValue(referralInst, curatorInst);
     }
 
     // Checks that the species attribute, if it exists, is equal between the instances from curator DB and release DB.
@@ -241,6 +228,11 @@ public class PostStepChecks {
             return speciesInst != null && speciesInst.getDBID().equals(HUMAN_INSTANCE_DBID);
         }
         return false;
+    }
+
+    private static boolean isRiceInstance(GKInstance referralInst) throws Exception {
+        GKInstance speciesInst = (GKInstance) referralInst.getAttributeValue(ReactomeJavaConstants.species);
+        return speciesInst.getDisplayName().contains("Oryza sativa");
     }
 
     private static Set<Long> getSourceSpeciesDbIds(GKInstance referralInst) throws Exception {
